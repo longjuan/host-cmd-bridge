@@ -1,0 +1,23 @@
+# macOS metadata
+.DS_Store
+._*
+
+# build outputs
+dist/
+bin/
+
+# caches
+.cache/
+
+# local runtime/state files
+config.yaml
+policy.yaml
+hostcmd.sock
+*.db
+*.sqlite
+
+# temp/log files
+*.log
+*.tmp
+tmp/
+

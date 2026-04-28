@@ -1,0 +1,37 @@
+socket:
+  # 显式配置优先；留空则默认使用 <exe_dir>/containerskill/host-cmd-bridge/hostcmd.sock
+  path: ./containerskill/host-cmd-bridge/hostcmd.sock
+  # 容器侧访问建议 0666；更严格可改 0660 并确保容器用户在同组
+  file_mode: "0666"
+http:
+  listen_addr: ":8080"
+  callback_path_prefix: "/wecom/callback"
+store:
+  sqlite_path: ./data/hostcmd.db
+exec:
+  max_concurrent: 2
+  max_timeout_sec: 180
+  run_user: hostcmd
+approval:
+  timeout_sec: 600
+  callback_window_sec: 300
+wecom:
+  corp_id: "YOUR_CORP_ID"
+  corp_secret: "YOUR_CORP_SECRET"
+  agent_id: 1000002
+  template_id: "YOUR_TEMPLATE_ID"
+  creator_user_id: "zhangsan"
+  approver_user_ids: ["lisi"]
+  token: "YOUR_CALLBACK_TOKEN"
+  encoding_aes_key: "YOUR_43_CHAR_AES_KEY"
+  api_base_url: "https://qyapi.weixin.qq.com"
+  field_titles:
+    request_id: "请求ID"
+    command: "执行命令"
+    args: "命令参数"
+    reason: "执行原因"
+    timeout_sec: "超时时间(秒)"
+    digest: "命令摘要"
+policy:
+  path: ./policy.example.yaml
+  reload_interval_sec: 2

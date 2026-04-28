@@ -1,0 +1,4 @@
+interface:
+  display_name: "HostCmd Bridge"
+  short_description: "Host command submit/query operator via Unix socket"
+  default_prompt: "Operate host-cmd-bridge with the bundled socket in this skill directory. Submit/query safely, enforce request_id uniqueness and argument encoding, and handle duplicate/error branches deterministically."

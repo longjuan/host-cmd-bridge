@@ -1,0 +1,24 @@
+whitelist:
+  - command: /usr/bin/true
+    arg_patterns: []
+  - command: /bin/echo
+    arg_patterns:
+      - '^(healthcheck|safe-test)$'
+command_blacklist:
+  - '(?i)(^|/)(curl|wget|fetch)$'
+  - '(?i)(^|/)(nc|ncat|netcat|socat|telnet)$'
+  - '(?i)(^|/)(bash|sh|zsh|python|python3|perl|php|ruby)$'
+  - '(?i)(^|/)(docker|kubectl|ctr|runc|nsenter|chroot|mount|umount)$'
+  - '(?i)(^|/)(iptables|nft|ufw)$'
+  - '(?i)(^|/)rm$'
+arg_blacklist:
+  - '(?i)(;|\||&&|\|\||`|\$\(|>|<)'
+  - '(?i)(/dev/tcp|bash\s+-i|python\s+-c|perl\s+-e|php\s+-r|nc\s+-e)'
+  - '(?i)(https?://|ftp://)'
+  - '(?i)(/etc/passwd|/etc/shadow|/root/\.ssh|/var/run/docker\.sock|/proc/[0-9]+/mem)'
+  - '(?i)(^|\\s)/(\\s|$)|(^|\\s)/(etc|bin|sbin|usr|lib|lib64|boot|proc|sys)(/|\\s|$)'
+  - '(?i)(--privileged|--pid=host|--net=host|--cap-add)'
+auto_approve_whitelist: true
+max_arg_length: 256
+max_reason_length: 1024
+allowed_arg_pattern: '^[a-zA-Z0-9._/:=@,+-]+$'
