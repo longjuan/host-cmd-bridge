@@ -278,10 +278,107 @@ command_blacklist:
 	if resp.Status != model.StatusFailed {
 		t.Fatalf("expected failed status, got %s", resp.Status)
 	}
-	if !strings.Contains(resp.ErrorReason, "create approval failed") {
-		t.Fatalf("expected approval-path failure, got: %s", resp.ErrorReason)
+	if !strings.Contains(resp.Message, "create approval failed") {
+		t.Fatalf("expected approval-path failure, got: %s", resp.Message)
 	}
-	if strings.Contains(resp.ErrorReason, "not whitelisted") {
-		t.Fatalf("unexpected whitelist rejection: %s", resp.ErrorReason)
+	if strings.Contains(resp.Message, "not whitelisted") {
+		t.Fatalf("unexpected whitelist rejection: %s", resp.Message)
+	}
+}
+
+func TestQuery_NotFoundReturnsMessage(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.NewSQLiteStore(filepath.Join(dir, "hostcmd.db"))
+	if err != nil {
+		t.Fatalf("new sqlite store: %v", err)
+	}
+	defer st.Close()
+	if err := st.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	svc := &Service{store: st}
+
+	resp, err := svc.Query(context.Background(), "missing")
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if resp.Status != model.StatusFailed {
+		t.Fatalf("expected failed status, got %s", resp.Status)
+	}
+	if resp.Message != "request not found" {
+		t.Fatalf("expected not found message, got %q", resp.Message)
+	}
+}
+
+func TestToSocketResponse_DefaultMessages(t *testing.T) {
+	tests := []struct {
+		name string
+		rec  store.RequestRecord
+		want string
+	}{
+		{
+			name: "pending approval",
+			rec:  store.RequestRecord{Status: model.StatusPendingApproval},
+			want: "waiting for approval",
+		},
+		{
+			name: "approved",
+			rec:  store.RequestRecord{Status: model.StatusApproved},
+			want: "approval passed, waiting for execution",
+		},
+		{
+			name: "executing",
+			rec:  store.RequestRecord{Status: model.StatusExecuting},
+			want: "command is executing",
+		},
+		{
+			name: "rejected",
+			rec:  store.RequestRecord{Status: model.StatusRejected},
+			want: "approval rejected by approver, command was not executed",
+		},
+		{
+			name: "withdrawn",
+			rec:  store.RequestRecord{Status: model.StatusWithdrawn},
+			want: "approval withdrawn before completion, command was not executed",
+		},
+		{
+			name: "approval timeout",
+			rec:  store.RequestRecord{Status: model.StatusApprovalTimeout, ApprovalReason: "approval not completed before deadline"},
+			want: "approval not completed before deadline, command was not executed",
+		},
+		{
+			name: "exec timeout",
+			rec:  store.RequestRecord{Status: model.StatusExecTimeout},
+			want: "command execution timed out, command was terminated",
+		},
+		{
+			name: "failed",
+			rec:  store.RequestRecord{Status: model.StatusFailed},
+			want: "request failed before or during command execution",
+		},
+		{
+			name: "preserve existing error",
+			rec:  store.RequestRecord{Status: model.StatusFailed, ErrorReason: "create approval failed: create failed"},
+			want: "create approval failed: create failed",
+		},
+		{
+			name: "succeeded has no message",
+			rec:  store.RequestRecord{Status: model.StatusSucceeded},
+			want: "",
+		},
+		{
+			name: "succeeded suppresses stored error",
+			rec:  store.RequestRecord{Status: model.StatusSucceeded, ErrorReason: "stale error"},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := toSocketResponse(tt.rec)
+			if resp.Message != tt.want {
+				t.Fatalf("expected message %q, got %q", tt.want, resp.Message)
+			}
+		})
 	}
 }

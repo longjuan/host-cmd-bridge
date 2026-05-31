@@ -48,7 +48,8 @@ description: 用于 AI 在容器内发起宿主机命令执行/查询命令执�
 1. 默认使用 Python 客户端。
 2. `submit` 后阻塞等待返回。
 3. 若提交连接中断或用户后续追问状态，执行 `query`。
-4. 回复中至少包含：`request_id`, `status`, `exit_code`, `stdout`, `stderr`, `error_reason`。
+4. 回复中至少包含：`request_id`, `status`, `exit_code`, `stdout`, `stderr`；失败、等待或异常响应还会包含 `message`。
+5. 机器判断只看 `status`；失败、等待、异常说明看 `message`；`SUCCEEDED` 时不要期待 `message`。
 
 ## 错误分支处理
 

@@ -209,10 +209,11 @@ go run ./cmd/agent -config ./config.yaml
   "stderr":"",
   "started_at":"2026-03-20T12:00:00Z",
   "ended_at":"2026-03-20T12:00:00Z",
-  "timed_out":false,
-  "error_reason":""
+  "timed_out":false
 }
 ```
+
+失败、等待或异常响应会通过 `message` 返回可读说明；`SUCCEEDED` 响应不包含 `message`。
 
 ## HTTP 回调
 

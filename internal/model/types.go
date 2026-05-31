@@ -42,16 +42,15 @@ type SocketRequest struct {
 }
 
 type SocketResponse struct {
-	RequestID   string    `json:"request_id"`
-	Status      Status    `json:"status,omitempty"`
-	ExitCode    int       `json:"exit_code,omitempty"`
-	Stdout      string    `json:"stdout,omitempty"`
-	Stderr      string    `json:"stderr,omitempty"`
-	StartedAt   time.Time `json:"started_at,omitempty"`
-	EndedAt     time.Time `json:"ended_at,omitempty"`
-	TimedOut    bool      `json:"timed_out,omitempty"`
-	ErrorReason string    `json:"error_reason,omitempty"`
-	Message     string    `json:"message,omitempty"`
+	RequestID string    `json:"request_id"`
+	Status    Status    `json:"status,omitempty"`
+	ExitCode  int       `json:"exit_code,omitempty"`
+	Stdout    string    `json:"stdout,omitempty"`
+	Stderr    string    `json:"stderr,omitempty"`
+	StartedAt time.Time `json:"started_at,omitempty"`
+	EndedAt   time.Time `json:"ended_at,omitempty"`
+	TimedOut  bool      `json:"timed_out,omitempty"`
+	Message   string    `json:"message,omitempty"`
 }
 
 type ExecuteRequest struct {

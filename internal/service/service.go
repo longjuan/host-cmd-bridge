@@ -83,7 +83,7 @@ func (s *Service) Submit(ctx context.Context, req model.SocketRequest) (model.So
 	validated, err := security.ValidateAndDigest(compiled, req.Command, req.Args, req.Reason)
 	if err != nil {
 		log.Printf("[audit] submit rejected by policy request_id=%s reason=%v", req.RequestID, err)
-		return model.SocketResponse{RequestID: req.RequestID, Status: model.StatusFailed, ErrorReason: err.Error()}, nil
+		return model.SocketResponse{RequestID: req.RequestID, Status: model.StatusFailed, Message: err.Error()}, nil
 	}
 
 	rec, err := s.store.GetByRequestID(ctx, req.RequestID)
@@ -203,7 +203,7 @@ func (s *Service) Query(ctx context.Context, requestID string) (model.SocketResp
 	rec, err := s.store.GetByRequestID(ctx, requestID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return model.SocketResponse{RequestID: requestID, Message: "request not found"}, nil
+			return model.SocketResponse{RequestID: requestID, Status: model.StatusFailed, Message: "request not found"}, nil
 		}
 		return model.SocketResponse{}, err
 	}
@@ -370,13 +370,13 @@ func mapApprovalStatus(spStatus int) (model.Status, bool) {
 
 func toSocketResponse(rec store.RequestRecord) model.SocketResponse {
 	resp := model.SocketResponse{
-		RequestID:   rec.RequestID,
-		Status:      rec.Status,
-		ExitCode:    rec.ExitCode,
-		Stdout:      rec.Stdout,
-		Stderr:      rec.Stderr,
-		TimedOut:    rec.TimedOut,
-		ErrorReason: rec.ErrorReason,
+		RequestID: rec.RequestID,
+		Status:    rec.Status,
+		ExitCode:  rec.ExitCode,
+		Stdout:    rec.Stdout,
+		Stderr:    rec.Stderr,
+		TimedOut:  rec.TimedOut,
+		Message:   responseMessage(rec),
 	}
 	if rec.StartedAt != nil {
 		resp.StartedAt = *rec.StartedAt
@@ -385,6 +385,35 @@ func toSocketResponse(rec store.RequestRecord) model.SocketResponse {
 		resp.EndedAt = *rec.EndedAt
 	}
 	return resp
+}
+
+func responseMessage(rec store.RequestRecord) string {
+	if rec.Status == model.StatusSucceeded {
+		return ""
+	}
+	if rec.ErrorReason != "" {
+		return rec.ErrorReason
+	}
+	switch rec.Status {
+	case model.StatusPendingApproval:
+		return "waiting for approval"
+	case model.StatusApproved:
+		return "approval passed, waiting for execution"
+	case model.StatusExecuting:
+		return "command is executing"
+	case model.StatusRejected:
+		return "approval rejected by approver, command was not executed"
+	case model.StatusWithdrawn:
+		return "approval withdrawn before completion, command was not executed"
+	case model.StatusApprovalTimeout:
+		return "approval not completed before deadline, command was not executed"
+	case model.StatusExecTimeout:
+		return "command execution timed out, command was terminated"
+	case model.StatusFailed:
+		return "request failed before or during command execution"
+	default:
+		return ""
+	}
 }
 
 func (s *Service) startApprovalTimeoutWatcher(requestID string, deadline time.Time) {

@@ -74,8 +74,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		var req model.SocketRequest
 		if err := json.Unmarshal(line, &req); err != nil {
 			_ = enc.Encode(model.SocketResponse{
-				Message:     "invalid request json",
-				ErrorReason: err.Error(),
+				Status:  model.StatusFailed,
+				Message: fmt.Sprintf("invalid request json: %v", err),
 			})
 			continue
 		}
@@ -83,9 +83,9 @@ func (s *Server) handleConn(conn net.Conn) {
 		resp, err := s.dispatch(req)
 		if err != nil {
 			resp = model.SocketResponse{
-				RequestID:   req.RequestID,
-				Status:      model.StatusFailed,
-				ErrorReason: err.Error(),
+				RequestID: req.RequestID,
+				Status:    model.StatusFailed,
+				Message:   err.Error(),
 			}
 		}
 		if err := enc.Encode(resp); err != nil {
