@@ -6,6 +6,16 @@ socket:
 http:
   listen_addr: ":8080"
   callback_path_prefix: "/wecom/callback"
+  # 反向代理（Cloudflare Tunnel / nginx / frp 等）场景下还原真实客户端 IP。
+  # 仅当直连对端命中该列表时才采信代理头，避免被伪造的 X-Forwarded-For 污染。
+  # 支持 CIDR、裸 IP、以及关键字 loopback / private；默认仅回环（cloudflared 本机接入即可）。
+  # 若 cloudflared 跑在容器里，直连对端是 docker 网关，需要显式加上，例如 172.17.0.1/32。
+  trusted_proxies:
+    - "127.0.0.1/32"
+    - "::1/128"
+  # auto（默认）：按 CF-Connecting-IP -> True-Client-IP -> X-Real-IP -> X-Forwarded-For -> Forwarded 顺序挑选
+  # 也可指定单个头：cf-connecting-ip / true-client-ip / x-real-ip / x-forwarded-for / forwarded
+  real_ip_header: "auto"
 store:
   sqlite_path: ./data/hostcmd.db
 exec:

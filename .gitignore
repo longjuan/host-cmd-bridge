@@ -21,3 +21,6 @@ hostcmd.sock
 *.tmp
 tmp/
 
+# WorkBuddy project memory (local only, must not be committed)
+.workbuddy/
+

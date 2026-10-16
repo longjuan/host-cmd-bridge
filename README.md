@@ -66,6 +66,7 @@ cp ./policy.example.yaml ./policy.yaml
 - `exec.max_timeout_sec`（全局最大执行超时）
 - `approval.timeout_sec`
 - `http.callback_path_prefix`（企业微信回调路径前缀，例如 `/wecom-app`）
+- `http.trusted_proxies` / `http.real_ip_header`（反向代理场景下还原真实客户端 IP，默认即可用于 Cloudflare Tunnel）
 - `wecom.*`（企业 ID、密钥、模板、回调 token/aes key）
 
 ### 3) 启动二进制
@@ -154,6 +155,7 @@ go run ./cmd/agent -config ./config.yaml
 - `wecom.encoding_aes_key` = 回调 AESKey
 - `wecom.api_base_url` = `https://qyapi.weixin.qq.com`（默认即可）
 - `http.callback_path_prefix` = 回调路径前缀（例如 `/wecom-app`）
+- `http.trusted_proxies` / `http.real_ip_header` = 反向代理可信来源与首选客户端 IP 头（默认值即可用于 Cloudflare Tunnel）
 - `wecom.field_titles.*` = 模板里对应控件“中文名称”（用于自动匹配控件 ID）
 
 补充：
@@ -182,6 +184,7 @@ go run ./cmd/agent -config ./config.yaml
 - 报 `corp id mismatch`：`wecom.corp_id` 配置错误，或用了其他企业的回调参数。
 - 审批单创建失败：优先检查 `template_id`，以及 `wecom.field_titles.*` 是否与模板控件中文名称完全一致。
 - 请求长期 pending：企业微信回调没到服务，先检查网络可达和网关转发路径。
+- 回调日志里 `remote=` 总是 `127.0.0.1` 或代理地址：说明走的是反向代理（Cloudflare Tunnel 等），请看 `client_ip` / `ip_source` 字段；若 `client_ip` 仍是代理地址且日志带 `hint=`，按提示把该对端加入 `http.trusted_proxies`。
 - 容器侧报 `PermissionError: [Errno 13] Permission denied`：检查 `socket.file_mode`、socket 目录权限和容器用户组；默认建议先用 `0666` 验证链路。
 
 ## Socket 协议（JSONL）
@@ -223,6 +226,38 @@ go run ./cmd/agent -config ./config.yaml
 - `POST {callback_path_prefix}`（审批结果回调）
 
 两者都使用企业微信回调参数：`msg_signature`、`timestamp`、`nonce`。
+
+### 真实客户端 IP（Cloudflare Tunnel / 反向代理）
+
+经 cloudflared、nginx 等反向代理接入时，TCP 直连对端永远是 `127.0.0.1` 或代理地址，
+直接用 `RemoteAddr` 会看不出真实来源。因此回调日志会输出三个字段：
+
+```text
+[wecom-callback] request client_ip=203.0.113.9 ip_source=cf-connecting-ip remote=127.0.0.1:36194 method=GET path=/wecom/app query=...
+```
+
+- `client_ip`：还原后的真实客户端 IP（失败时回退为直连对端）
+- `ip_source`：取值来源，`cf-connecting-ip` / `true-client-ip` / `x-real-ip` / `x-forwarded-for` / `forwarded` / `remote`
+- `remote`：TCP 直连对端，排障时用于确认请求究竟从哪进来
+
+安全前提：**只有直连对端命中 `http.trusted_proxies` 时才会采信代理头**，
+否则任何人伪造 `X-Forwarded-For` 就能污染日志。对端不被信任但请求带了代理头时，
+日志会附带一次性提示（`hint=...`），告知需要把该对端加进 `trusted_proxies`。
+
+配置说明：
+
+| 场景 | 配置 |
+| --- | --- |
+| cloudflared 与 agent 同机（默认） | 无需改动，回环已在默认可信列表内 |
+| cloudflared 跑在容器里（直连对端为 docker 网关） | `trusted_proxies: ["172.17.0.1/32"]` |
+| 前置 nginx 同机反代 | 默认可用；跨机则加上 nginx 的 IP/CIDR |
+| 只采信某一个头 | `real_ip_header: "cf-connecting-ip"` |
+
+`trusted_proxies` 支持 CIDR（`10.0.0.0/8`）、裸 IP（`172.17.0.1`）以及关键字
+`loopback`、`private`。注意：把大网段写进可信列表等于信任该网段内所有主机，
+建议只写具体地址或最小网段。
+
+`X-Forwarded-For` 存在多跳时，从右往左跳过可信代理，取第一个不可信地址作为客户端来源。
 
 ## 状态流转
 

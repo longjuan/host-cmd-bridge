@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"host-cmd-bridge/internal/httpx"
 )
 
 type Config struct {
@@ -31,6 +33,12 @@ type SocketConfig struct {
 type HTTPConfig struct {
 	ListenAddr         string `yaml:"listen_addr" json:"listen_addr"`
 	CallbackPathPrefix string `yaml:"callback_path_prefix" json:"callback_path_prefix"`
+	// TrustedProxies 列出允许采信代理头的反向代理地址（CIDR / 裸 IP /
+	// loopback / private）。默认仅回环，即 cloudflared 从本机接入的场景。
+	TrustedProxies []string `yaml:"trusted_proxies" json:"trusted_proxies"`
+	// RealIPHeader 指定优先采信的客户端 IP 头，空或 auto 表示按
+	// CF-Connecting-IP -> True-Client-IP -> X-Real-IP -> X-Forwarded-For -> Forwarded 顺序自动挑选。
+	RealIPHeader string `yaml:"real_ip_header" json:"real_ip_header"`
 }
 
 type StoreConfig struct {
@@ -108,6 +116,12 @@ func (c *Config) applyDefaults() {
 	if c.HTTP.CallbackPathPrefix == "" {
 		c.HTTP.CallbackPathPrefix = "/wecom/callback"
 	}
+	if len(c.HTTP.TrustedProxies) == 0 {
+		c.HTTP.TrustedProxies = append([]string(nil), httpx.DefaultTrustedProxies...)
+	}
+	if strings.TrimSpace(c.HTTP.RealIPHeader) == "" {
+		c.HTTP.RealIPHeader = httpx.RealIPHeaderAuto
+	}
 	if c.Store.SQLitePath == "" {
 		c.Store.SQLitePath = "./data/hostcmd.db"
 	}
@@ -167,6 +181,9 @@ func (c Config) validate() error {
 	}
 	if _, err := c.Socket.ParseFileMode(); err != nil {
 		return err
+	}
+	if err := httpx.ValidateConfig(c.HTTP.TrustedProxies, c.HTTP.RealIPHeader); err != nil {
+		return fmt.Errorf("http.trusted_proxies/real_ip_header invalid: %w", err)
 	}
 	if c.Policy.Path == "" {
 		return fmt.Errorf("policy.path is required")
